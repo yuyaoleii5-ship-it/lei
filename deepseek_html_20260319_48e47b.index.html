@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>向生秘门心得 · 电子书</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', '宋体', 'Songti SC', serif;
+            background-color: #3e2e1f; /* 深木色背景，模拟书架 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: pan-y pinch-zoom; /* 允许垂直滑动，但翻页由JS控制水平滑动 */
+        }
+
+        /* 电子书容器 */
+        .ebook {
+            width: 100%;
+            max-width: 420px; /* 类似手机大小，适合阅读 */
+            height: 700px;
+            max-height: 90vh;
+            background-color: #f9f3e7; /* 泛黄书页 */
+            border-radius: 20px 8px 8px 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px #b59d7a inset;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 书页区域（水平滑动容器） */
+        .pages-container {
+            flex: 1;
+            display: flex;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.4s ease-out;
+            will-change: transform;
+        }
+
+        /* 每一页 */
+        .page {
+            flex: 0 0 100%;
+            height: 100%;
+            overflow-y: auto;  /* 内容过多时本页滚动，不影响翻页 */
+            padding: 25px 20px 30px 20px;
+            background-color: #f9f3e7;
+            background-image: 
+                linear-gradient(rgba(200, 180, 150, 0.1) 1px, transparent 1px),
+                linear-gradient(to right, rgba(160, 130, 100, 0.05) 1px, transparent 1px);
+            background-size: 100% 24px, 40px 100%;
+            box-shadow: inset -2px 0 5px rgba(0,0,0,0.05);
+            border-right: 1px solid #dacbb8;
+            scroll-behavior: smooth;
+            font-size: 16px;
+            line-height: 1.7;
+            color: #2e241b;
+        }
+
+        /* 去除右边框的最后一页效果 */
+        .page:last-child {
+            border-right: none;
+        }
+
+        /* 自定义滚动条 (让书页更精致) */
+        .page::-webkit-scrollbar {
+            width: 4px;
+        }
+        .page::-webkit-scrollbar-track {
+            background: #e6dacd;
+        }
+        .page::-webkit-scrollbar-thumb {
+            background: #b28b6f;
+            border-radius: 4px;
+        }
+
+        /* 封面特殊背景 */
+        .cover-page {
+            background: #e2d1bc url('data:image/svg+xml;utf8,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><path d="M30 5 L35 20 L50 20 L38 30 L43 45 L30 36 L17 45 L22 30 L10 20 L25 20 Z" fill="%23b59d7a" opacity="0.1"/></svg>') repeat;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .cover-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3d2b1a;
+            text-shadow: 2px 2px 0 #e9dbc9;
+            margin-bottom: 10px;
+            letter-spacing: 6px;
+            border-bottom: 2px solid #b59d7a;
+            padding-bottom: 15px;
+        }
+        .cover-sub {
+            font-size: 18px;
+            color: #5f4a32;
+            font-style: italic;
+            margin: 15px 0 30px;
+        }
+        .cover-quote {
+            font-size: 16px;
+            max-width: 80%;
+            color: #4f3e2b;
+            background: rgba(255,250,240,0.7);
+            padding: 15px;
+            border-radius: 30px 8px 30px 8px;
+            border: 1px solid #cbb59b;
+        }
+
+        /* 目录样式 */
+        .toc-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px dashed #cbb59b;
+            font-size: 16px;
+        }
+        .toc-dots {
+            flex: 1 1 auto;
+            border-bottom: 2px dotted #b59d7a;
+            margin: 0 8px;
+            height: 1em;
+        }
+        .toc-page-num {
+            font-family: monospace;
+            color: #7e5a41;
+        }
+
+        /* 标题层级 */
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #3d2b1a;
+            margin: 15px 0 10px;
+            border-left: 6px solid #b97c5b;
+            padding-left: 15px;
+        }
+        h2 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #4f3e2b;
+            margin: 20px 0 10px;
+            border-bottom: 1px solid #dacbb8;
+            padding-bottom: 5px;
+        }
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #6b4f34;
+            margin: 15px 0 8px;
+        }
+        .section-label {
+            background: #e7d9c9;
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 14px;
+            color: #4e3e2c;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        /* 列表与段落 */
+        p, li {
+            margin-bottom: 8px;
+            text-align: justify;
+        }
+        ul, ol {
+            padding-left: 25px;
+            margin: 10px 0;
+        }
+        li {
+            margin-bottom: 5px;
+        }
+        .note-box {
+            background: #efe5d9;
+            padding: 12px 16px;
+            border-radius: 12px 4px 12px 4px;
+            border-left: 4px solid #b97c5b;
+            margin: 15px 0;
+            font-size: 15px;
+        }
+        .qa-block {
+            margin: 12px 0;
+        }
+        .qa-q {
+            font-weight: 700;
+            color: #5a3f2b;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="%23b97c5b"><circle cx="12" cy="12" r="6"/></svg>') left center no-repeat;
+            background-size: 14px;
+            padding-left: 22px;
+            margin-bottom: 4px;
+        }
+        .qa-a {
+            padding-left: 22px;
+            color: #3e3329;
+            margin-bottom: 12px;
+            border-left: 2px solid #d4bc9e;
+        }
+
+        /* 页码和翻页控件 */
+        .footer-nav {
+            background: #dacbb8;
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 15px;
+            color: #3d2b1a;
+            border-top: 1px solid #b59d7a;
+            user-select: none;
+        }
+        .nav-btn {
+            background: #b59d7a;
+            border: none;
+            color: #f9f3e7;
+            font-size: 22px;
+            width: 44px;
+            height: 40px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+            font-weight: bold;
+            outline: none;
+        }
+        .nav-btn:active {
+            background: #8f7557;
+            transform: scale(0.95);
+        }
+        .nav-btn.disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        .page-indicator {
+            background: #efe5d9;
+            padding: 5px 16px;
+            border-radius: 40px;
+            font-weight: 600;
+            border: 1px solid #b59d7a;
+        }
+
+        /* 装饰引用 */
+        .inscription {
+            font-style: italic;
+            color: #7e5a41;
+            background: #f3ebe1;
+            padding: 12px;
+            border-radius: 30px 8px 30px 8px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="ebook" id="ebook">
+    <!-- 水平翻页容器 -->
+    <div class="pages-container" id="pagesContainer">
+        <!-- 封面 第1页 -->
+        <div class="page cover-page">
+            <div style="margin-top: 20px;">✨</div>
+            <div class="cover-title">向生秘门</div>
+            <div class="cover-sub">健康·强身派</div>
+            <div class="cover-quote">慢练养气 · 提肛固元 · 意念导气</div>
+            <div style="margin-top: 40px; font-size: 15px; color: #6f523b;">向生心得 · 内部教材</div>
+            <div style="margin-top: 60px; border-top: 1px solid #b59d7a; width: 70%;"></div>
+            <div style="margin-top: 15px; font-size: 14px;">动作看似简单 · 细节决定效果</div>
+            <div style="margin-top: 30px; font-size: 13px;">坚持练习 · 身体年轻化</div>
+        </div>
+
+        <!-- 目录 第2页 -->
+        <div class="page">
+            <h2>📖 目 录</h2>
+            <div class="toc-item"><span>一、通用练习核心准则</span><span class="toc-dots"></span><span class="toc-page-num">3</span></div>
+            <div class="toc-item"><span>二、核心招式拆解·第一招</span><span class="toc-dots"></span><span class="toc-page-num">5</span></div>
+            <div class="toc-item"><span>第二招：气行天地</span><span class="toc-dots"></span><span class="toc-page-num">6</span></div>
+            <div class="toc-item"><span>第三招：飞舞长空</span><span class="toc-dots"></span><span class="toc-page-num">7</span></div>
+            <div class="toc-item"><span>三、常见问题答疑</span><span class="toc-dots"></span><span class="toc-page-num">8</span></div>
+            <div class="toc-item"><span>四、后续学习规划</span><span class="toc-dots"></span><span class="toc-page-num">12</span></div>
+            <div class="toc-item"><span>五、温馨练习提示</span><span class="toc-dots"></span><span class="toc-page-num">13</span></div>
+            <div class="toc-item"><span>封底</span><span class="toc-dots"></span><span class="toc-page-num">15</span></div>
+            <div style="margin-top: 30px;" class="inscription">向生提醒：<br>慢练养气、提肛固元、意念导气，通过基础招式调理身体、提升抵抗力。</div>
+        </div>
+
+        <!-- 第3页：通用练习核心准则 (部分1) -->
+        <div class="page">
+            <span class="section-label">基础之基</span>
+            <h2>一、通用练习核心准则</h2>
+            <p><strong>本部分为整套功法的基础要求，所有招式均需遵循。</strong></p>
+            <ul>
+                <li><strong>练习时间</strong>：早/中/晚均可，早上最佳。饭后间隔30分钟；空腹可少量进食；睡前45分钟改善睡眠。</li>
+                <li><strong>练习场地</strong>：室内空旷处，避免直吹风（空调/风扇/穿堂风）。毛孔张开后忌风，练完再开空调。</li>
+                <li><strong>身体状态</strong>：身心愉悦、完全放松，注意力高度集中。轻微牙痛/腰痛可放缓练习；病重时暂停。全程站立，不可坐或盘腿。</li>
+            </ul>
+            <div class="note-box">
+                ⚡ 核心要领：提肛（提纲）是整套功法的核心！吸气时提肛，呼气时自然放松，轻轻收紧即可。意念随呼气沉入丹田（肚脐上方）。
+            </div>
+        </div>
+
+        <!-- 第4页：通用练习核心准则 (部分2) -->
+        <div class="page">
+            <h3>呼吸原则 & 频次</h3>
+            <ul>
+                <li><strong>呼吸</strong>：全程鼻吸鼻呼，不用舌抵上颚，不憋气。先练动作，再配合呼吸，气不够时自然换气。</li>
+                <li><strong>频次与时长</strong>：每天至少1次，坚持3个月有明显体感。标准每招9遍，全套约45分钟；时间紧可每招5遍（约25分钟），建议练全十招。</li>
+                <li><strong>意念</strong>：呼气时意念引导气沉丹田，不用刻意追求气感。</li>
+            </ul>
+            <p style="margin-top: 20px;"><em>—— 所有招式均遵循慢练原则，动作到位比速度重要 ——</em></p>
+        </div>
+
+        <!-- 第5页：第一招 心静归一 -->
+        <div class="page">
+            <span class="section-label">第一式</span>
+            <h2>🧘 心静归一</h2>
+            <p><strong>培元固本，激活气感，缓解痔疮</strong>（提肛促肛门气血循环）</p>
+            <ul>
+                <li><strong>动作</strong>：站立，身体不前倾（如迎阳光）。吸气时手缓慢举至头顶，呼气时缓慢放下，全程轻柔。</li>
+                <li><strong>呼吸与提肛</strong>：吸气（手到顶）提肛，呼气（手放下）松肛，意念导气至丹田。</li>
+                <li><strong>细节</strong>：可不闭眼；提肛+收腹同步最佳，新手先练提肛；手到顶后自然放下，不用力。</li>
+                <li><strong>体感</strong>：微汗、手掌发热，快速得气感。</li>
+            </ul>
+            <div class="note-box">💡 常见体感：练完微微出汗、手掌发热，部分人会快速感受到气感。</div>
+        </div>
+
+        <!-- 第6页：第二招 气行天地 -->
+        <div class="page">
+            <span class="section-label">第二式</span>
+            <h2>🌍 气行天地</h2>
+            <p><strong>拉升脊柱与四肢，改善腰痛、手脚冰凉，辅助脊柱侧弯</strong></p>
+            <ul>
+                <li><strong>动作</strong>：站立，膝盖直立不弯。吸气时胸口上推，双手向上顶呈“顶天立地”；呼气时双手自然垂下，不刻意下伸。</li>
+                <li><strong>呼吸与提肛</strong>：吸气提肛，呼气松肛，意念导气至丹田。</li>
+                <li><strong>细节</strong>：手上顶不用力，能推多高就多高；手放下时勿碰地，避免拉伤；闪腰后可练此招，放缓。</li>
+                <li><strong>体感</strong>：手掌发热/发麻，四肢酸胀，手脚冰凉者渐温热。</li>
+            </ul>
+        </div>
+
+        <!-- 第7页：第三招 飞舞长空 -->
+        <div class="page">
+            <span class="section-label">第三式</span>
+            <h2>🕊️ 飞舞长空</h2>
+            <p><strong>改善肩膀酸痛、颈椎不适，养护脊椎与脖子</strong></p>
+            <ul>
+                <li><strong>动作</strong>：站立放松。吸气时提肛，双手缓慢向上举（尽量高）；呼气时双手打开并缓慢放下，肌肉全程放松。</li>
+                <li><strong>呼吸与提肛</strong>：吸气提肛，呼气松肛，意念随气沉丹田。</li>
+                <li><strong>细节</strong>：上举高度以舒适为准，循序渐进；肌肉放松，不憋气；可开窗但避风口。</li>
+                <li><strong>体感</strong>：肩膀/颈椎拉伸感、手掌气血涌动、微汗，部分人排气（浊气排出）。</li>
+            </ul>
+        </div>
+
+        <!-- 第8页：常见问答·呼吸类 -->
+        <div class="page">
+            <h2>❓ 常见问答 · 呼吸类</h2>
+            <div class="qa-block">
+                <div class="qa-q">问：一呼一吸做不完一个动作怎么办？</div>
+                <div class="qa-a">答：没关系，先跟着动作练，气不够时自然换气，练顺畅后会形成动作与呼吸的配合节奏。</div>
+                <div class="qa-q">问：吸气需要收腹吗？</div>
+                <div class="qa-a">答：能做到提肛+收腹同步最佳，新手可先单独练提肛，不用刻意强求。</div>
+                <div class="qa-q">问：呼气到丹田是真的气到丹田吗？</div>
+                <div class="qa-a">答：是意念引导，不是实际的气，只需想着气往丹田走即可。</div>
+                <div class="qa-q">问：招式过程中需要憋气吗？</div>
+                <div class="qa-a">答：全程不憋气，气不够就自然呼吸，所有呼吸均为鼻吸鼻呼。</div>
+            </div>
+        </div>
+
+        <!-- 第9页：问答·动作类 -->
+        <div class="page">
+            <h2>❓ 动作类</h2>
+            <div class="qa-q">问：练习时膝盖要弯曲吗？</div>
+            <div class="qa-a">答：所有招式膝盖均直立，不弯曲，弯曲会影响腰椎拉伸效果。</div>
+            <div class="qa-q">问：手放下时需要碰到地面吗？</div>
+            <div class="qa-a">答：不需要，自然垂下即可，刻意碰地会拉伤大腿筋。</div>
+            <div class="qa-q">问：提肛需要用力收紧肛门吗？</div>
+            <div class="qa-a">答：不用过度用力，轻轻收紧即可，呼气时自然放松。</div>
+            <div class="qa-q">问：练习时身体可以向前倾吗？</div>
+            <div class="qa-a">答：不可以，全程站立，身体保持中正，呈“迎接阳光”的姿态。</div>
+        </div>
+
+        <!-- 第10页：问答·体感类 -->
+        <div class="page">
+            <h2>❓ 体感类</h2>
+            <div class="qa-q">问：练完手麻、手掌发热是正常的吗？</div>
+            <div class="qa-a">答：正常，是气血循环加快的表现，属于初期体感。</div>
+            <div class="qa-q">问：练完爱放屁、出汗、流口水是怎么回事？</div>
+            <div class="qa-a">答：正常，身体排出浊气的表现，说明气在运作。</div>
+            <div class="qa-q">问：为什么别人有气感，我手还是凉的？</div>
+            <div class="qa-a">答：身体底子不同，坚持练会逐渐有气感，年龄越大通常越明显。</div>
+            <div class="qa-q">问：练的时候头晕是怎么回事？</div>
+            <div class="qa-a">答：呼吸太用力、吸得太深，放缓呼吸，轻轻吸气即可，严重时暂停。</div>
+        </div>
+
+        <!-- 第11页：问答·场景类 -->
+        <div class="page">
+            <h2>❓ 场景类</h2>
+            <div class="qa-q">问：可以开窗练习吗？</div>
+            <div class="qa-a">答：可以，保证空气流通即可，避免风口直吹身体。</div>
+            <div class="qa-q">问：可以坐着/盘腿练吗？</div>
+            <div class="qa-a">答：不建议，站立才能让气走到下半身，实现腰椎拉伸。</div>
+            <div class="qa-q">问：可以和其他功法（如金刚功）一起练吗？</div>
+            <div class="qa-a">答：不建议，练太杂可能导致气感相冲，专注这套即可。</div>
+        </div>
+
+        <!-- 第12页：问答·身体调理类 + 后续规划开头 -->
+        <div class="page">
+            <h2>❓ 身体调理类</h2>
+            <div class="qa-q">问：牙痛、腰痛可以练吗？</div>
+            <div class="qa-a">答：轻微可正常练，动作放缓；腰痛练此功有改善效果。</div>
+            <div class="qa-q">问：能改善失眠、手脚冰凉吗？</div>
+            <div class="qa-a">答：可以，睡前练45分钟改善睡眠；功法促气血循环，改善手脚冰凉。</div>
+            <div class="qa-q">问：痔疮患者练有帮助吗？</div>
+            <div class="qa-a">答：有，提肛动作促进肛门周边气血循环，缓解疼痛。</div>
+            <div class="qa-q">问：肩周炎患者适合练吗？</div>
+            <div class="qa-a">答：适合，第三招针对性改善肩膀酸痛。</div>
+            <h3 style="margin-top: 20px;">四、后续学习规划</h3>
+            <p>📅 下次跟练：3月25日（周三）晚7点<br>📚 全套10招拆解视频已在小鹅通上线<br>📈 进阶：基础→熟练→高阶+躺卧功法，半年后有线下见面。</p>
+        </div>
+
+        <!-- 第13页：温馨练习提示 (前半) -->
+        <div class="page">
+            <h2>🌟 温馨练习提示</h2>
+            <ul>
+                <li><strong>循序渐进</strong>：新手不求“气感”，先做对动作，慢练比快练效果好10倍。</li>
+                <li><strong>专属节奏</strong>：不与他人攀比，找到自己的节奏。</li>
+                <li><strong>坚持为王</strong>：每天练，3个月身体明显变化，比保健品持久。</li>
+                <li><strong>年龄适配</strong>：所有年龄段均可，年龄越大体感越明显；年轻人打好基础。</li>
+            </ul>
+        </div>
+
+        <!-- 第14页：温馨提示后半 + 反馈与分享 -->
+        <div class="page">
+            <h2>📣 反馈与分享</h2>
+            <p>练完有体感、身体有改善可及时反馈；觉得课程有帮助，可分享给家人朋友一起调理。</p>
+            <p>若对课程满意，可在小鹅通进行好评，我们会优化后续直播内容。</p>
+            <div class="inscription" style="margin-top: 30px;">“动作看似简单，细节决定效果，坚持练习实现身体状态年轻化。”</div>
+        </div>
+
+        <!-- 第15页：封底 -->
+        <div class="page cover-page" style="justify-content: flex-end; padding-bottom: 50px;">
+            <div style="border-top: 2px solid #b59d7a; width: 80%; margin-bottom: 30px;"></div>
+            <div style="font-size: 22px; font-weight: 300;">向生秘门</div>
+            <div style="font-size: 14px; margin: 20px;">健康 · 强身派</div>
+            <div style="font-size: 12px; color: #6b523b;">—— 练气固元 · 自在向生 ——</div>
+            <div style="margin-top: 60px; font-size: 12px;">内部学习 · 请勿外传</div>
+            <div style="margin-top: 20px;">🙏 感谢练习</div>
+        </div>
+    </div>
+
+    <!-- 底部翻页控件 -->
+    <div class="footer-nav">
+        <button class="nav-btn" id="prevBtn" aria-label="上一页">←</button>
+        <span class="page-indicator" id="pageIndicator">1 / 15</span>
+        <button class="nav-btn" id="nextBtn" aria-label="下一页">→</button>
+    </div>
+</div>
+
+<script>
+    (function() {
+        const container = document.getElementById('pagesContainer');
+        const pages = document.querySelectorAll('.page');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const indicator = document.getElementById('pageIndicator');
+
+        let currentPage = 0;
+        const totalPages = pages.length;
+
+        function updatePages() {
+            container.style.transform = `translateX(-${currentPage * 100}%)`;
+            indicator.innerText = `${currentPage + 1} / ${totalPages}`;
+            // 按钮状态 (视觉上禁用, 仍保留点击但不会超出范围)
+            prevBtn.classList.toggle('disabled', currentPage === 0);
+            nextBtn.classList.toggle('disabled', currentPage === totalPages - 1);
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages - 1) {
+                currentPage++;
+                updatePages();
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 0) {
+                currentPage--;
+                updatePages();
+            }
+        }
+
+        prevBtn.addEventListener('click', prevPage);
+        nextBtn.addEventListener('click', nextPage);
+
+        // 键盘左右键支持
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                prevPage();
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                nextPage();
+            }
+        });
+
+        // 触摸滑动支持 (简单水平滑动)
+        let touchStartX = 0;
+        let touchEndX = 0;
+        container.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+        container.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            const diff = touchEndX - touchStartX;
+            if (Math.abs(diff) > 40) { // 滑动阈值
+                if (diff > 0) {
+                    prevPage(); // 右滑上一页
+                } else {
+                    nextPage(); // 左滑下一页
+                }
+            }
+        }, { passive: true });
+
+        // 初始化
+        updatePages();
+
+        // 确保每页高度自适应（某些移动端地址栏问题，微调）
+        function setPagesHeight() {
+            const ebookHeight = document.getElementById('ebook').clientHeight;
+            pages.forEach(page => {
+                page.style.height = `${ebookHeight - 60}px`; // 减去底部导航高度
+            });
+        }
+        window.addEventListener('resize', setPagesHeight);
+        setTimeout(setPagesHeight, 100);
+    })();
+</script>
+</body>
+</html>
